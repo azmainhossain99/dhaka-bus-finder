@@ -650,25 +650,42 @@ function buildTransfer(t,fn,tn,idx){
 (function(){
   const COOLDOWN=2*60*1000;
   const TS_KEY='dkbus_last_visit';
+  const CNT_KEY='dkbus_last_count';
   function fmt(n){return n>=1000?(n/1000).toFixed(1).replace(/\.0$/,'')+'k':String(n);}
   function showCount(n){var el=document.getElementById('vcNum');if(el)el.textContent=fmt(n);}
-  function getCount(){
-    fetch('https://api.counterapi.dev/v1/dhakabus-finder/visits')
-      .then(function(r){return r.json();})
-      .then(function(d){showCount(d.count);})
-      .catch(function(){var el=document.getElementById('vcNum');if(el)el.textContent='—';});
-  }
+  // Show cached count immediately so there's no blank on refresh
+  try{
+    var cached=localStorage.getItem(CNT_KEY);
+    if(cached)showCount(parseInt(cached,10));
+  }catch(e){}
   function hitCount(){
     fetch('https://api.counterapi.dev/v1/dhakabus-finder/visits/up')
       .then(function(r){return r.json();})
-      .then(function(d){showCount(d.count);})
-      .catch(function(){var el=document.getElementById('vcNum');if(el)el.textContent='—';});
+      .then(function(d){
+        showCount(d.count);
+        try{localStorage.setItem(CNT_KEY,String(d.count));}catch(e){}
+      })
+      .catch(function(){});
+  }
+  function readCount(){
+    fetch('https://api.counterapi.dev/v1/dhakabus-finder/visits/up?dry=1')
+      .then(function(r){return r.json();})
+      .then(function(d){
+        showCount(d.count);
+        try{localStorage.setItem(CNT_KEY,String(d.count));}catch(e){}
+      })
+      .catch(function(){});
   }
   try{
     var last=parseInt(localStorage.getItem(TS_KEY)||'0',10);
     var now=Date.now();
-    if(now-last>COOLDOWN){localStorage.setItem(TS_KEY,String(now));hitCount();}
-    else{getCount();}
+    if(now-last>COOLDOWN){
+      localStorage.setItem(TS_KEY,String(now));
+      hitCount();
+    }else{
+      // Within cooldown — just refresh the displayed number silently
+      readCount();
+    }
   }catch(e){hitCount();}
 })();
 
