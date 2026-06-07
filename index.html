@@ -646,19 +646,30 @@ function buildTransfer(t,fn,tn,idx){
     (v.y?'<span class="vok">✓ '+v.y+' confirmed</span>':'<span class="vnone">Be first to verify</span>')+
     '</div></div></div>';
 }
-// ── VISITOR COUNTER (counterapi.dev — free shared counter) ───────────────────
+// ── VISITOR COUNTER (2-min cooldown, shared via counterapi.dev) ──────────────
 (function(){
+  const COOLDOWN=2*60*1000;
+  const TS_KEY='dkbus_last_visit';
   function fmt(n){return n>=1000?(n/1000).toFixed(1).replace(/\.0$/,'')+'k':String(n);}
-  fetch('https://api.counterapi.dev/v1/dhakabus-finder/visits/up')
-    .then(function(r){return r.json();})
-    .then(function(data){
-      const el=document.getElementById('vcNum');
-      if(el)el.textContent=fmt(data.count);
-    })
-    .catch(function(){
-      const el=document.getElementById('vcNum');
-      if(el)el.textContent='—';
-    });
+  function showCount(n){var el=document.getElementById('vcNum');if(el)el.textContent=fmt(n);}
+  function getCount(){
+    fetch('https://api.counterapi.dev/v1/dhakabus-finder/visits')
+      .then(function(r){return r.json();})
+      .then(function(d){showCount(d.count);})
+      .catch(function(){var el=document.getElementById('vcNum');if(el)el.textContent='—';});
+  }
+  function hitCount(){
+    fetch('https://api.counterapi.dev/v1/dhakabus-finder/visits/up')
+      .then(function(r){return r.json();})
+      .then(function(d){showCount(d.count);})
+      .catch(function(){var el=document.getElementById('vcNum');if(el)el.textContent='—';});
+  }
+  try{
+    var last=parseInt(localStorage.getItem(TS_KEY)||'0',10);
+    var now=Date.now();
+    if(now-last>COOLDOWN){localStorage.setItem(TS_KEY,String(now));hitCount();}
+    else{getCount();}
+  }catch(e){hitCount();}
 })();
 
 function renderRoutes(){
