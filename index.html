@@ -330,11 +330,18 @@ function findDirect(fId,tId){
   for(const e of(SR[ts]||[]))tm[e.r]=e.o;
   const res=[];
   for(const fe of(SR[String(fId)]||[])){
-    if(!(fe.r in tm))continue;const to=tm[fe.r];if(fe.o>=to)continue;
+    if(!(fe.r in tm))continue;const to=tm[fe.r];if(fe.o===to)continue;
     const rt=RBI[fe.r],bus=BUSES[String(rt.b)];
-    const stops=rt.s.slice(fe.o,to+1).map(s=>SN[String(s)]);
-    const sc=to-fe.o,pop=BPOP[String(rt.b)]||1;
-    res.push({type:'direct',busName:bus.n,busNameBn:bus.bn||'',svc:bus.st||'',ot:bus.ot||'',stopsCount:sc,stops,score:sc-pop*0.6,busId:String(rt.b),stopIds:rt.s,fromOrd:fe.o,toOrd:to});
+    const pop=BPOP[String(rt.b)]||1;
+    if(fe.o<to){
+      const stops=rt.s.slice(fe.o,to+1).map(s=>SN[String(s)]);
+      const sc=to-fe.o;
+      res.push({type:'direct',busName:bus.n,busNameBn:bus.bn||'',svc:bus.st||'',ot:bus.ot||'',stopsCount:sc,stops,score:sc-pop*0.6,busId:String(rt.b),stopIds:rt.s,fromOrd:fe.o,toOrd:to});
+    } else {
+      const stops=rt.s.slice(to,fe.o+1).reverse().map(s=>SN[String(s)]);
+      const sc=fe.o-to;
+      res.push({type:'direct',busName:bus.n,busNameBn:bus.bn||'',svc:bus.st||'',ot:bus.ot||'',stopsCount:sc,stops,score:sc-pop*0.6,busId:String(rt.b),stopIds:rt.s,fromOrd:fe.o,toOrd:to});
+    }
   }
   return res.sort((a,b)=>a.score-b.score);
 }
@@ -344,14 +351,16 @@ function findTransfer(fId,tId){
   const seen=new Set(),res=[];
   for(const fe of(SR[String(fId)]||[])){
     const r1=RBI[fe.r];
-    for(let i=fe.o+1;i<r1.s.length;i++){
+    // Check stops in both directions from origin on leg1
+    for(let i=0;i<r1.s.length;i++){
+      if(i===fe.o)continue;
       const mid=r1.s[i],ms=String(mid);
       for(const me of(SR[ms]||[])){
         if(me.r===fe.r||!(me.r in tm))continue;
-        const to2=tm[me.r];if(me.o>=to2)continue;
+        const to2=tm[me.r];if(me.o===to2)continue;
         const key=fe.r+'-'+me.r+'-'+mid;if(seen.has(key))continue;seen.add(key);
         const b1=BUSES[String(r1.b)],r2=RBI[me.r],b2=BUSES[String(r2.b)];
-        const l1=i-fe.o,l2=to2-me.o;
+        const l1=Math.abs(i-fe.o),l2=Math.abs(to2-me.o);
         res.push({type:'transfer',transferStop:SN[ms],totalStops:l1+l2,
           leg1:{busName:b1.n,busNameBn:b1.bn||'',stopsCount:l1,svc:b1.st||'',ot:b1.ot||'',stopIds:r1.s,fromOrd:fe.o,toOrd:i},
           leg2:{busName:b2.n,busNameBn:b2.bn||'',stopsCount:l2,svc:b2.st||'',ot:b2.ot||'',stopIds:r2.s,fromOrd:me.o,toOrd:to2}});
